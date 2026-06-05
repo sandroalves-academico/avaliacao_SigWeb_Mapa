@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Leaflet + Supabase PostGIS - Plugins Centralizados</title>
+    <title>Leaflet + Supabase PostGIS - Camadas Independentes</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -205,7 +205,7 @@
             border: none !important;
         }
 
-        /* Customização Geral e Estilização Fina do Popup do Leaflet */
+        /* Customização Geral do Popup do Leaflet */
         .leaflet-popup-content-wrapper {
             padding: 0 !important;
             overflow: hidden;
@@ -305,11 +305,12 @@ const googleStreets = L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z
 });
 
 let camadaLimiteParaiba = null;
-let camadaMunicipiosGeoJSON = null;
+let camadaMunicipiosBase = null; // Nova camada apenas com limites comuns
+let camadaCoropletico = null;    // Nova camada dedicada ao Coroplético
 let controleLegenda = null;
 
 // ============================================================
-//  FUNÇÕES DE ESTILIZAÇÃO (COROPLETICO)
+//  FUNÇÕES DE ESTILIZAÇÃO
 // ============================================================
 function getColor(pop) {
     return pop > 200000 ? '#800026' :
@@ -320,21 +321,31 @@ function getColor(pop) {
                           '#FFEDA0';
 }
 
+// Estilo do Mapa Coroplético (Colorido por indicador)
 function estiloCoropletico(feature) {
     const valorPop = feature.properties[variavelAtual] ? Number(feature.properties[variavelAtual]) : 0;
     return {
-        color: '#4a4a4a',
+        color: '#334155',
         weight: 1,
-        opacity: 0.7,
+        opacity: 0.8,
         fillColor: getColor(valorPop),
         fillOpacity: 0.85
     };
 }
 
+// Estilo Padrão para os Municípios comuns (Sem preenchimento de dados)
+const estiloMunicipiosBase = {
+    color: 'red',
+    weight: 1,
+    opacity: 0.7,
+    fillColor: '#white',
+    fillOpacity: 0.2
+};
+
 const estiloLimitePB = { color: '#1a1a1a', weight: 3, opacity: 1, fillColor: 'transparent', fillOpacity: 0 };
 const estiloMalhaViaria = { color: '#34495e', weight: 1.2, opacity: 0.6 };
 
-/* ── FUNÇÃO DE POPUP OTIMIZADA COM DESIGN EM CARD PROFISSIONAL ── */
+/* ── FUNÇÃO DE POPUP EM CARD ── */
 function popupMunicipios(feature, layer) {
     if (feature.properties) {
         const p = feature.properties;
@@ -345,12 +356,10 @@ function popupMunicipios(feature, layer) {
 
         layer.bindPopup(`
             <div style="background: #ffffff; border-radius: 8px; overflow: hidden;">
-                <div style="background: #1e293b; color: #ffffff; padding: 12px 14px; font-weight: 600; font-size: 14px; letter-spacing: 0.3px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="background: #1e293b; color: #ffffff; padding: 12px 14px; font-weight: 600; font-size: 14px; letter-spacing: 0.3px;">
                     📍 ${p.nome || 'Sem nome'}
                 </div>
-                
                 <div style="padding: 14px; font-size: 12px; color: #334155; line-height: 1.6;">
-                    
                     <div style="margin-bottom: 12px;">
                         <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #e2e8f0;">
                             <span style="color: #64748b; font-weight: 500;">Código IBGE:</span>
@@ -365,26 +374,23 @@ function popupMunicipios(feature, layer) {
                             <strong style="color: #0f172a; text-align: right; max-width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.mesoregiao || 'N/A'}</strong>
                         </div>
                     </div>
-
                     <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 6px 0; padding-bottom: 3px; border-bottom: 2px solid #cbd5e1;">
                         📊 Dados Demográficos
                     </div>
-
                     <div>
                         <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">
-                            <span style="color: #475569; display: flex; align-items: center; gap: 4px;">🏢 Urbana:</span>
+                            <span style="color: #475569;">🏢 Urbana:</span>
                             <span style="font-weight: 600; color: #1e293b;">${popUrbana}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">
-                            <span style="color: #475569; display: flex; align-items: center; gap: 4px;">🚜 Rural:</span>
+                            <span style="color: #475569;">🚜 Rural:</span>
                             <span style="font-weight: 600; color: #1e293b;">${popRural}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; padding: 6px 0 2px 0; margin-top: 4px; background: #f8fafc; padding: 6px 8px; border-radius: 4px;">
-                            <span style="color: #0f172a; font-weight: 700; display: flex; align-items: center; gap: 4px;">👥 População Total:</span>
+                        <div style="display: flex; justify-content: space-between; padding: 6px 8px; margin-top: 4px; background: #f8fafc; border-radius: 4px;">
+                            <span style="color: #0f172a; font-weight: 700;">👥 População Total:</span>
                             <span style="font-weight: 800; color: #2563eb; font-size: 13px;">${popTotal}</span>
                         </div>
                     </div>
-
                 </div>
             </div>
         `, { maxWidth: 300 });
@@ -394,32 +400,23 @@ function popupMunicipios(feature, layer) {
 // Coordenadas do Cursor
 const coordsMonitor = document.getElementById('coords-monitor');
 map.on('mousemove', function(e) {
-    const lat = e.latlng.lat.toFixed(5);
-    const lng = e.latlng.lng.toFixed(5);
-    coordsMonitor.textContent = `Lat: ${lat}, Lon: ${lng}`;
+    coordsMonitor.textContent = `Lat: ${e.latlng.lat.toFixed(5)}, Lon: ${e.latlng.lng.toFixed(5)}`;
 });
 
-// Escala Gráfica
 L.control.scale({ metric: true, imperial: true, position: 'bottomleft' }).addTo(map);
 
-// Botão "Enquadrar Paraíba"
+// Botão Fit Bounds
 const BotaoFitBounds = L.Control.extend({
     options: { position: 'topleft' },
     onAdd: function() {
         const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-fit-bounds');
         container.title = "Enquadrar Paraíba";
-        container.innerHTML = `
-            <svg viewBox="0 0 24 24">
-                <path d="M4 4h6V2H4c-1.1 0-2 .9-2 2v6h2V4zm16 6h2V4c0-1.1-.9-2-2-2h-6v2h6v6zm-2 10h-6v2h6c1.1 0 2-.9 2-2v6h-2v-6zM4 14H2v6c0 1.1.9 2 2 2h6v-2H4v-6zm8-4c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/>
-            </svg>
-        `;
+        container.innerHTML = `<svg viewBox="0 0 24 24"><path d="M4 4h6V2H4c-1.1 0-2 .9-2 2v6h2V4zm16 6h2V4c0-1.1-.9-2-2-2h-6v2h6v6zm-2 10h-6v2h6c1.1 0 2-.9 2-2v6h-2v-6zM4 14H2v6c0 1.1.9 2 2 2h6v-2H4v-6zm8-4c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/></svg>`;
         container.onclick = function() {
             if (camadaLimiteParaiba && map.hasLayer(camadaLimiteParaiba)) {
                 map.fitBounds(camadaLimiteParaiba.getBounds());
-            } else if (camadaMunicipiosGeoJSON) {
-                map.fitBounds(camadaMunicipiosGeoJSON.getBounds());
-            } else {
-                map.setView(center, zoom);
+            } else if (camadaMunicipiosBase) {
+                map.fitBounds(camadaMunicipiosBase.getBounds());
             }
         };
         return container;
@@ -427,30 +424,38 @@ const BotaoFitBounds = L.Control.extend({
 });
 map.addControl(new BotaoFitBounds());
 
-// Legenda Coroplética
-function adicionarLegenda() {
-    if (controleLegenda) { map.removeControl(controleLegenda); }
-    controleLegenda = L.control({ position: 'bottomright' });
-    controleLegenda.onAdd = function () {
-        const div = L.DomUtil.create('div', 'info legend');
-        const grades = [0, 10000, 20000, 50000, 100000, 200000];
-        const titulos = {
-            'populacao_total': 'População Total',
-            'populacao_urbana': 'População Urbana',
-            'populacao_rural': 'População Rural'
-        };
-        div.innerHTML = `<h4>${titulos[variavelAtual]}</h4>`;
-        for (let i = 0; i < grades.length; i++) {
-            const de = grades[i];
-            const ate = grades[i + 1];
-            div.innerHTML += `<i style="background: ${getColor(de + 1)}"></i> ${de.toLocaleString('pt-BR')}${ate ? ` &ndash; ${ate.toLocaleString('pt-BR')}` : '+'}<br>`;
+// Gerenciador da Legenda Coroplética
+function gerenciarLegendaVisivel() {
+    if (camadaCoropletico && map.hasLayer(camadaCoropletico)) {
+        if (!controleLegenda) {
+            controleLegenda = L.control({ position: 'bottomright' });
+            controleLegenda.onAdd = function () {
+                const div = L.DomUtil.create('div', 'info legend');
+                const grades = [0, 10000, 20000, 50000, 100000, 200000];
+                const titulos = {
+                    'populacao_total': 'População Total',
+                    'populacao_urbana': 'População Urbana',
+                    'populacao_rural': 'População Rural'
+                };
+                div.innerHTML = `<h4>${titulos[variavelAtual]}</h4>`;
+                for (let i = 0; i < grades.length; i++) {
+                    const de = grades[i];
+                    const ate = grades[i + 1];
+                    div.innerHTML += `<i style="background: ${getColor(de + 1)}"></i> ${de.toLocaleString('pt-BR')}${ate ? ` &ndash; ${ate.toLocaleString('pt-BR')}` : '+'}<br>`;
+                }
+                return div;
+            };
+            controleLegenda.addTo(map);
         }
-        return div;
-    };
-    controleLegenda.addTo(map);
+    } else {
+        if (controleLegenda) {
+            map.removeControl(controleLegenda);
+            controleLegenda = null;
+        }
+    }
 }
 
-// Seletor de Variáveis Filtro populacional
+// Seletor de Variáveis do Filtro populacional
 const ControlSeletorFiltro = L.Control.extend({
     options: { position: 'topright' },
     onAdd: function() {
@@ -469,13 +474,24 @@ const ControlSeletorFiltro = L.Control.extend({
         const select = seletorDiv.querySelector('select');
         select.addEventListener('change', function (e) {
             variavelAtual = e.target.value;
-            if (camadaMunicipiosGeoJSON) { camadaMunicipiosGeoJSON.setStyle(estiloCoropletico); }
-            adicionarLegenda();
+            if (camadaCoropletico) { 
+                camadaCoropletico.setStyle(estiloCoropletico); 
+                if(map.hasLayer(camadaCoropletico)) {
+                    map.removeControl(controleLegenda);
+                    controleLegenda = null;
+                    gerenciarLegendaVisivel();
+                }
+            }
         });
         return seletorDiv;
     }
 });
 map.addControl(new ControlSeletorFiltro());
+
+// Monitorar inserção/remoção da camada coroplética para ocultar/exibir a legenda dinamicamente
+map.on('layeradd layerremove', function() {
+    gerenciarLegendaVisivel();
+});
 
 // ============================================================
 //  CONEXÃO DE DADOS COM SUPABASE
@@ -485,20 +501,16 @@ async function buscarDadosSupabase(tabela) {
     if (tabela === 'municipios') {
         colunas = "nome,microregiao,mesoregiao,cod_ibge_m,populacao_total,populacao_urbana,populacao_rural,geom";
     }
-    const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/${tabela}?select=${colunas}`,
-        {
-            headers: {
-                'apikey':        SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Accept':        'application/json',
-                'Range':         '0-9999' 
-            }
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=${colunas}`, {
+        headers: {
+            'apikey':        SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Accept':        'application/json',
+            'Range':         '0-9999' 
         }
-    );
+    });
     if (!response.ok) {
-        const txt = await response.text();
-        throw new Error(`[${tabela}] HTTP ${response.status} — ${txt}`);
+        throw new Error(`[${tabela}] Erro na requisição HTTP ${response.status}`);
     }
     const rows = await response.json();
     return {
@@ -510,7 +522,7 @@ async function buscarDadosSupabase(tabela) {
     };
 }
 
-// Carregamento Assíncrono do Mapa Completo
+// Inicializador Principal do Mapa
 async function inicializarMapa() {
     const loadingEl   = document.getElementById('loading-overlay');
     const loadingText = document.getElementById('loading-text');
@@ -527,17 +539,26 @@ async function inicializarMapa() {
             const data = await buscarDadosSupabase('limite_pb');
             geojsonLimitePB = L.geoJSON(data, { style: estiloLimitePB }).addTo(map);
             camadaLimiteParaiba = geojsonLimitePB;
-        } catch (e) { console.warn("Camada 'limite_pb' não disponível.", e); }
+        } catch (e) { console.warn("Camada 'limite_pb' indisponível.", e); }
 
-        // 2. Municípios (Coroplético)
-        loadingText.textContent = "Carregando dados populacionais das divisas...";
+        // 2. Municípios & Mapa Coroplético (Duas Camadas Geradas a partir do mesmo Dado)
+        loadingText.textContent = "Carregando malhas geográficas e dados populacionais...";
         try {
-            const data = await buscarDadosSupabase('municipios');
-            camadaMunicipiosGeoJSON = L.geoJSON(data, {
+            const dadosMunicipios = await buscarDadosSupabase('municipios');
+            
+            // Camada Base comum (apenas limites territoriais simples)
+            camadaMunicipiosBase = L.geoJSON(dadosMunicipios, {
+                style: estiloMunicipiosBase,
+                onEachFeature: popupMunicipios
+            }).addTo(map);
+
+            // Camada Temática (Mapa Coroplético Ativo por padrão)
+            camadaCoropletico = L.geoJSON(dadosMunicipios, {
                 style: estiloCoropletico,
                 onEachFeature: popupMunicipios
             }).addTo(map);
-        } catch (e) { console.error("Falha crítica ao carregar municípios.", e); throw e; }
+
+        } catch (e) { console.error("Falha ao processar municípios.", e); throw e; }
 
         // 3. Malha Viária
         try {
@@ -557,11 +578,13 @@ async function inicializarMapa() {
             });
         } catch (e) { console.warn("Camada 'sedes' indisponível.", e); }
 
-        // 5. ADIÇÃO DOS CONTROLES EM GRUPO
+        // ============================================================
+        //  5. CONFIGURAÇÃO DE PLUGINS E CONTROLES DE CAMADAS
+        // ============================================================
         
-        // 5.1 ── INICIALIZAÇÃO DO LEAFLET SEARCH ──
+        // 5.1 ── LEAFLET SEARCH (Vinculado à camada base para buscas eficientes) ──
         const searchControl = new L.Control.Search({
-            layer: camadaMunicipiosGeoJSON,
+            layer: camadaMunicipiosBase,
             propertyName: 'nome',
             marker: false,
             position: 'topleft',
@@ -575,59 +598,42 @@ async function inicializarMapa() {
         searchControl.on('search:locationfound', function(e) { e.layer.openPopup(); });
         map.addControl(searchControl);
 
-        // 5.2 ── INICIALIZAÇÃO DO BOTÃO DE CAMADAS ──
+        // 5.2 ── GERENCIADOR E SEPARADOR DE CAMADAS NO MENU ──
         const basemaps = { "OpenStreetMap": osm, "Google Streets": googleStreets };
+        
         const overlays = {};
         if (geojsonLimitePB) overlays["Limite Estadual PB"] = geojsonLimitePB;
-        if (camadaMunicipiosGeoJSON) overlays["Mapa Coroplético (Municípios)"] = camadaMunicipiosGeoJSON;
-        if (geojsonViaria)     overlays["Malha Viária"]       = geojsonViaria;
-        if (geojsonSedes)      overlays["Sedes Urbanas"]       = geojsonSedes;
+        if (camadaMunicipiosBase) overlays["Malha de Municípios (Linhas)"] = camadaMunicipiosBase;
+        if (camadaCoropletico) overlays["Mapa Coroplético (População)"] = camadaCoropletico; // <- Separado aqui!
+        if (geojsonViaria) overlays["Malha Viária"] = geojsonViaria;
+        if (geojsonSedes) overlays["Sedes Urbanas"] = geojsonSedes;
 
         L.control.layers(basemaps, overlays, { position: 'topleft', collapsed: true }).addTo(map);
 
-        // 5.3 ── INICIALIZAÇÃO DO CONTROLE DE LOCALIZAÇÃO ──
+        // 5.3 ── CONTROL LOCATE ──
         L.control.locate({
             position: 'topleft', 
-            strings: {
-                title: "Mostrar minha localização atual", 
-                popup: "Você está dentro de {distance} {unit} deste ponto",
-                outside: "Você está fora dos limites do mapa."
-            },
+            strings: { title: "Mostrar minha localização atual", outside: "Fora dos limites." },
             flyTo: true, 
-            returnToPrevBounds: true, 
-            keepCurrentZoomLevel: false, 
-            stopFollowingOnDrag: true, 
-            locateOptions: {
-                enableHighAccuracy: true, 
-                timeout: 10000, 
-                maximumAge: 0, 
-                maxZoom: 18 
-            },
-            icon: "leaflet-control-locate-location-arrow", 
-            iconLoading: "leaflet-control-locate-spinner", 
-            circleStyle: {
-                color: "#136AEC",
-                fillColor: "#136AEC",
-                fillOpacity: 0.2,
-                weight: 2
-            }
+            keepCurrentZoomLevel: false,
+            locateOptions: { enableHighAccuracy: true, timeout: 10000 }
         }).addTo(map);
 
-        // Adiciona a Legenda Coroplética
-        adicionarLegenda();
+        // Ativação Inicial da Legenda Dinâmica
+        gerenciarLegendaVisivel();
 
-        // Ajuste Inicial da Câmera
+        // Enquadramento Inicial da Câmera
         if (camadaLimiteParaiba) {
             map.fitBounds(camadaLimiteParaiba.getBounds());
-        } else if (camadaMunicipiosGeoJSON) {
-            map.fitBounds(camadaMunicipiosGeoJSON.getBounds());
+        } else if (camadaMunicipiosBase) {
+            map.fitBounds(camadaMunicipiosBase.getBounds());
         }
 
         loadingEl.classList.add('hidden');
     } catch (err) {
-        console.error('[Erro na aplicação]:', err);
+        console.error(err);
         loadingEl.classList.add('hidden');
-        errorEl.textContent = `⚠️ Falha ao inicializar dados geográficos: ${err.message}`;
+        errorEl.textContent = `⚠️ Erro ao carregar dados: ${err.message}`;
         errorEl.style.display = 'block';
     }
 }
