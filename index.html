@@ -2,19 +2,19 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Leaflet + Supabase PostGIS - Plugins & MiniMap Centralizado</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-search@3.0.9/dist/leaflet-search.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-measure@3.1.0/dist/leaflet-measure.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-minimap@3.6.1/dist/Control.MiniMap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.81.1/dist/L.Control.Locate.min.css" />
 
     <style>
         * { box-sizing: border-box; }
-        body { padding: 0; margin: 0; font-family: sans-serif; }
+        body { padding: 0; margin: 0; font-family: sans-serif; overflow: hidden; }
         html, body, #map { height: 100%; width: 100vw; }
 
         /* Loading overlay */
@@ -77,7 +77,7 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
 
-        /* Botão Enquadrar */
+        /* Botão Enquadrar Paraíba */
         .leaflet-control-fit-bounds {
             background: #fff;
             border: 2px solid rgba(0,0,0,0.2);
@@ -89,15 +89,30 @@
             justify-content: center;
             width: 34px;
             height: 34px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
         }
         .leaflet-control-fit-bounds:hover { background-color: #f4f4f4; }
         .leaflet-control-fit-bounds svg { width: 18px; height: 18px; fill: #555; }
 
-        /* Container flexível superior direito */
-        .right-top-flex-container {
-            display: flex;
-            gap: 10px;
+        /* 3. Ajustes de CSS (Estilização e Alinhamento do Novo Controle) */
+        .leaflet-control-locate {
+            margin-top: 5px !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+            border: 2px solid rgba(0,0,0,0.2) !important;
+            background: #fff !important;
+            border-radius: 4px !important;
+        }
+        .leaflet-control-locate a {
+            width: 30px !important; /* Corrigido para encaixar na área interna da borda de 2px */
+            height: 30px !important;
+            line-height: 30px !important;
+            display: flex !important;
             align-items: center;
+            justify-content: center;
+            color: #555 !important;
+        }
+        .leaflet-control-locate.active a {
+            color: #136AEC !important; /* Destaque azul ativo */
         }
 
         /* Seletor de Variável */
@@ -106,6 +121,8 @@
             padding: 8px 12px;
             border-radius: 6px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            border: 2px solid rgba(0,0,0,0.2);
+            max-width: 280px;
         }
         .control-seletor-variavel label {
             font-size: 12px;
@@ -121,6 +138,8 @@
             border: 1px solid #ccc;
             outline: none;
             cursor: pointer;
+            background-color: #fff;
+            width: 100%;
         }
 
         /* ── Legenda Coroplética ── */
@@ -134,7 +153,7 @@
             border-radius: 6px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
             max-width: 220px;
-            margin-bottom: 35px; /* Mantém a legenda perfeitamente acima do monitor de coordenadas */
+            margin-bottom: 35px;
         }
         .info.legend h4 {
             margin: 0 0 8px 0;
@@ -152,23 +171,87 @@
             border: 1px solid rgba(0,0,0,0.15);
         }
 
+        /* Estilização Manual da Pesquisa */
         .leaflet-control-search {
             margin-top: 5px !important;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
             border: 2px solid rgba(0,0,0,0.2) !important;
         }
+        .leaflet-control-search .search-input {
+            max-width: 160px;
+        }
 
-        /* ── CUSTOMIZAÇÃO DO MINIMAPA PARA O LOCAL PINTADO (MEIO DA TELA) ── */
+        /* Botão Flutuante de Camadas */
+        .leaflet-control-layers {
+            margin-top: 5px !important; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+            border: 2px solid rgba(0,0,0,0.2) !important;
+            border-radius: 4px !important;
+            background: #fff;
+        }
+        .leaflet-control-layers-toggle {
+            width: 30px !important;
+            height: 30px !important;
+            background-size: 20px 20px !important; 
+        }
+        .leaflet-control-layers-expanded {
+            padding: 10px 14px !important;
+            background: #fff !important;
+            color: #333 !important;
+            font-family: sans-serif !important;
+            font-size: 13px !important;
+            line-height: 1.5 !important;
+            max-height: 220px;
+            overflow-y: auto;
+            border: none !important;
+        }
+
+        /* MiniMapa */
         .leaflet-control-minimap {
             position: fixed !important;
             right: 10px !important;
             top: 50% !important;
-            transform: translateY(-50%) !important; /* Centraliza verticalmente na tela */
+            transform: translateY(-50%) !important;
             margin: 0 !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
             border: 3px solid #fff !important;
             border-radius: 8px;
-            z-index: 999; /* Garante que fique acima das camadas do mapa base */
+            z-index: 999;
+        }
+
+        /* Regras de Responsividade Mobile */
+        @media (max-width: 768px) {
+            .leaflet-control-minimap {
+                display: none !important;
+            }
+            .leaflet-top.leaflet-left {
+                margin: 10px 0 0 10px; /* Alinhamento do canto reduzido para Mobile */
+            }
+            .leaflet-control-locate a {
+                width: 26px !important;
+                height: 26px !important;
+                line-height: 26px !important;
+            }
+            #coords-monitor {
+                font-size: 10px;
+                padding: 4px 8px;
+                bottom: 5px;
+                right: 5px;
+            }
+            .info.legend {
+                max-width: 160px;
+                font-size: 11px;
+                padding: 6px 10px;
+                margin-bottom: 25px;
+            }
+            .control-seletor-variavel {
+                max-width: 170px;
+                padding: 6px 8px;
+            }
+            .leaflet-popup-content {
+                font-size: 13px !important;
+                max-width: 230px;
+            }
         }
     </style>
 </head>
@@ -187,8 +270,8 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet-search@3.0.9/dist/leaflet-search.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet-measure@3.1.0/dist/leaflet-measure.pt_BR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/leaflet-minimap@3.6.1/dist/Control.MiniMap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.81.1/dist/L.Control.Locate.min.js"></script>
 
 <script>
 // ============================================================
@@ -205,7 +288,7 @@ let variavelAtual = 'populacao_total';
 // ============================================================
 const center = [-7.213987593255963, -36.99096679687501];
 const zoom   = 8;
-const map    = L.map('map').setView(center, zoom);
+const map    = L.map('map', { tap: false }).setView(center, zoom);
 
 const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -223,7 +306,7 @@ let camadaMunicipiosGeoJSON = null;
 let controleLegenda = null;
 
 // ============================================================
-//  FUNÇÃO DE PALETA SEQUENCIAL
+//  FUNÇÕES DE ESTILIZAÇÃO (COROPLETICO)
 // ============================================================
 function getColor(pop) {
     return pop > 200000 ? '#800026' :
@@ -245,26 +328,14 @@ function estiloCoropletico(feature) {
     };
 }
 
-const estiloLimitePB = {
-    color: '#1a1a1a',
-    weight: 3,
-    opacity: 1,
-    fillColor: 'transparent',
-    fillOpacity: 0
-};
+const estiloLimitePB = { color: '#1a1a1a', weight: 3, opacity: 1, fillColor: 'transparent', fillOpacity: 0 };
+const estiloMalhaViaria = { color: '#34495e', weight: 1.2, opacity: 0.6 };
 
-const estiloMalhaViaria = {
-    color: '#34495e',
-    weight: 1.2,
-    opacity: 0.6
-};
-
-// Popups
 function popupMunicipios(feature, layer) {
     if (feature.properties) {
         const p = feature.properties;
         layer.bindPopup(`
-            <div style="font-family: sans-serif; line-height: 1.4;">
+            <div style="font-family: sans-serif; line-height: 1.4; max-width:100%;">
                 <strong style="font-size: 1.1em;">${p.nome || 'Sem nome'}</strong><br>
                 <hr style="border:0; border-top:1px solid #ccc; margin:5px 0;">
                 <b>Código IBGE:</b> ${p.cod_ibge_m || 'N/A'}<br>
@@ -276,12 +347,6 @@ function popupMunicipios(feature, layer) {
                 <strong>Pop. Total:</strong> ${p.populacao_total ? Number(p.populacao_total).toLocaleString('pt-BR') : '0'}
             </div>
         `);
-    }
-}
-
-function popupSedes(feature, layer) {
-    if (feature.properties) {
-        layer.bindPopup(`<b>Sede Urbana:</b> ${feature.properties.nome || 'Ponto de referência'}`);
     }
 }
 
@@ -344,26 +409,11 @@ function adicionarLegenda() {
     controleLegenda.addTo(map);
 }
 
-// Bloco Agrupado Top Right (Medição + Filtro)
-const BlocoAgrupadoTopRight = L.Control.extend({
+// Seletor de Variáveis Filtro populacional
+const ControlSeletorFiltro = L.Control.extend({
     options: { position: 'topright' },
     onAdd: function() {
-        const mainContainer = L.DomUtil.create('div', 'right-top-flex-container');
-        const measurePlaceholder = L.DomUtil.create('div', '', mainContainer);
-        
-        const measureControl = new L.Control.Measure({
-            primaryLengthUnit: 'kilometers',
-            secondaryLengthUnit: 'meters',
-            primaryAreaUnit: 'sqkilometers',
-            secondaryAreaUnit: 'hectares',
-            activeColor: '#d35400',
-            completedColor: '#2c3e50',
-            localization: 'pt_BR'
-        });
-        
-        measurePlaceholder.appendChild(measureControl.onAdd(map));
-
-        const seletorDiv = L.DomUtil.create('div', 'control-seletor-variavel', mainContainer);
+        const seletorDiv = L.DomUtil.create('div', 'control-seletor-variavel');
         seletorDiv.innerHTML = `
             <label for="campo-populacao">Filtrar Indicador:</label>
             <select id="campo-populacao">
@@ -372,9 +422,8 @@ const BlocoAgrupadoTopRight = L.Control.extend({
                 <option value="populacao_rural" ${variavelAtual === 'populacao_rural' ? 'selected' : ''}>População Rural</option>
             </select>
         `;
-
-        L.DomEvent.disableClickPropagation(mainContainer);
-        L.DomEvent.disableScrollPropagation(mainContainer);
+        L.DomEvent.disableClickPropagation(seletorDiv);
+        L.DomEvent.disableScrollPropagation(seletorDiv);
 
         const select = seletorDiv.querySelector('select');
         select.addEventListener('change', function (e) {
@@ -382,11 +431,10 @@ const BlocoAgrupadoTopRight = L.Control.extend({
             if (camadaMunicipiosGeoJSON) { camadaMunicipiosGeoJSON.setStyle(estiloCoropletico); }
             adicionarLegenda();
         });
-
-        return mainContainer;
+        return seletorDiv;
     }
 });
-map.addControl(new BlocoAgrupadoTopRight());
+map.addControl(new ControlSeletorFiltro());
 
 // ============================================================
 //  CONEXÃO DE DADOS COM SUPABASE
@@ -464,12 +512,13 @@ async function inicializarMapa() {
                     return L.circleMarker(latlng, {
                         radius: 4, fillColor: '#FF0000', color: '#000000', weight: 1, opacity: 1, fillOpacity: 0.9
                     });
-                },
-                onEachFeature: popupSedes
+                }
             });
         } catch (e) { console.warn("Camada 'sedes' indisponível.", e); }
 
-        // ── INICIALIZAÇÃO DO LEAFLET SEARCH ──
+        // 5. ORDEM DE EXECUÇÃO E EMPILHAMENTO DOS CONTROLES NO CANTO SUPERIOR ESQUERDO
+        
+        // 5.1 ── INICIALIZAÇÃO DO LEAFLET SEARCH ──
         const searchControl = new L.Control.Search({
             layer: camadaMunicipiosGeoJSON,
             propertyName: 'nome',
@@ -485,22 +534,7 @@ async function inicializarMapa() {
         searchControl.on('search:locationfound', function(e) { e.layer.openPopup(); });
         map.addControl(searchControl);
 
-        // ── INICIALIZAÇÃO DO LEAFLET MINIMAP (POSICIONADO NO MEIO DA TELA) ──
-        const minimapLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 5 });
-        
-        const miniMap = new L.Control.MiniMap(minimapLayer, {
-            position: 'bottomright',           // Herdado por padrão, mas customizado via CSS no topo
-            width: 145,
-            height: 115,
-            zoomLevelOffset: -5,
-            toggleDisplay: false,              // Desativado o botão de colapsar para manter fixo no meio
-            minimized: false
-        }).addTo(map);
-
-        // Adiciona a Legenda Coroplética (Fica embaixo no canto inferior direito)
-        adicionarLegenda();
-
-        // Controle Unificado de Camadas (Overlays)
+        // 5.2 ── INICIALIZAÇÃO DO BOTÃO DE CAMADAS ──
         const basemaps = { "OpenStreetMap": osm, "Google Streets": googleStreets };
         const overlays = {};
         if (geojsonLimitePB) overlays["Limite Estadual PB"] = geojsonLimitePB;
@@ -508,8 +542,52 @@ async function inicializarMapa() {
         if (geojsonViaria)     overlays["Malha Viária"]       = geojsonViaria;
         if (geojsonSedes)      overlays["Sedes Urbanas"]       = geojsonSedes;
 
-        L.control.layers(basemaps, overlays, { collapsed: false }).addTo(map);
+        L.control.layers(basemaps, overlays, { position: 'topleft', collapsed: true }).addTo(map);
 
+        // 5.3 ── 2. INICIALIZAÇÃO DO CONTROLE DE LOCALIZAÇÃO PROFISSIONAL (LEAFLET.LOCATECONTROL) ──
+        L.control.locate({
+            position: 'topleft', 
+            strings: {
+                title: "Mostrar minha localização atual", 
+                popup: "Você está dentro de {distance} {unit} deste ponto",
+                outside: "Você está fora dos limites do mapa."
+            },
+            flyTo: true, 
+            returnToPrevBounds: true, 
+            keepCurrentZoomLevel: false, 
+            stopFollowingOnDrag: true, 
+            locateOptions: {
+                enableHighAccuracy: true, 
+                timeout: 10000, 
+                maximumAge: 0, 
+                maxZoom: 18 
+            },
+            icon: "leaflet-control-locate-location-arrow", 
+            iconLoading: "leaflet-control-locate-spinner", 
+            circleStyle: {
+                color: "#136AEC",
+                fillColor: "#136AEC",
+                fillOpacity: 0.2,
+                weight: 2
+            }
+        }).addTo(map);
+
+
+        // ── INICIALIZAÇÃO DO LEAFLET MINIMAP ──
+        const minimapLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 5 });
+        const miniMap = new L.Control.MiniMap(minimapLayer, {
+            position: 'bottomright',
+            width: 145,
+            height: 115,
+            zoomLevelOffset: -5,
+            toggleDisplay: false,
+            minimized: false
+        }).addTo(map);
+
+        // Adiciona a Legenda Coroplética
+        adicionarLegenda();
+
+        // Ajuste Inicial da Câmera
         if (camadaLimiteParaiba) {
             map.fitBounds(camadaLimiteParaiba.getBounds());
         } else if (camadaMunicipiosGeoJSON) {
