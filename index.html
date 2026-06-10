@@ -60,10 +60,10 @@
             box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         }
 
-        /* Coordenadas do Cursor */
+        /* Coordenadas do Cursor - Subido para evitar sobreposição do copyright */
         #coords-monitor {
             position: fixed;
-            bottom: 10px;
+            bottom: 25px;
             right: 10px;
             background: rgba(255, 255, 255, 0.85);
             padding: 6px 12px;
@@ -141,7 +141,7 @@
             width: 100%;
         }
 
-        /* Legenda Coroplética */
+        /* Legenda Coroplética - Ajustada para subir um pouco mais */
         .info.legend {
             background: white;
             padding: 10px 14px;
@@ -152,7 +152,7 @@
             border-radius: 6px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
             max-width: 220px;
-            margin-bottom: 35px;
+            margin-bottom: 55px;
         }
         .info.legend h4 {
             margin: 0 0 8px 0;
@@ -240,14 +240,14 @@
             #coords-monitor {
                 font-size: 10px;
                 padding: 4px 8px;
-                bottom: 5px;
+                bottom: 20px;
                 right: 5px;
             }
             .info.legend {
                 max-width: 160px;
                 font-size: 11px;
                 padding: 6px 10px;
-                margin-bottom: 25px;
+                margin-bottom: 45px;
             }
             .control-seletor-variavel {
                 max-width: 170px;
@@ -494,7 +494,7 @@ map.on('layeradd layerremove', function() {
 });
 
 // ============================================================
-//  CONEXÃO DE DADOS COM SUPABASE
+//  CONEXÃO DE DADOS WITH SUPABASE
 // ============================================================
 async function buscarDadosSupabase(tabela) {
     let colunas = "*";
@@ -529,7 +529,7 @@ async function inicializarMapa() {
     const errorEl     = document.getElementById('error-box');
 
     let geojsonLimitePB   = null;
-    let geojsonViaria     = null;
+    let geojsonViaria      = null;
     let geojsonSedes      = null;
 
     try {
@@ -604,7 +604,7 @@ async function inicializarMapa() {
         const overlays = {};
         if (geojsonLimitePB) overlays["Limite Estadual PB"] = geojsonLimitePB;
         if (camadaMunicipiosBase) overlays["Malha de Municípios (Linhas)"] = camadaMunicipiosBase;
-        if (camadaCoropletico) overlays["Mapa Coroplético (População)"] = camadaCoropletico; // <- Separado aqui!
+        if (camadaCoropletico) overlays["Mapa Coroplético (População)"] = camadaCoropletico; 
         if (geojsonViaria) overlays["Malha Viária"] = geojsonViaria;
         if (geojsonSedes) overlays["Sedes Urbanas"] = geojsonSedes;
 
